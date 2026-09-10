@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+<title>戴夫清单 · DaveList</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="戴夫清单">
+<meta name="theme-color" content="#419e67">
+<style>
+  html,body{margin:0;height:100%;overflow:hidden;overscroll-behavior:none;}
+  body{
+    font-family:-apple-system,"PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+    background:radial-gradient(1100px 650px at 30% 22%, #f4f8fa, #e4eaf0 58%, #d5dee6);
+    user-select:none;-webkit-user-select:none;
+    -webkit-tap-highlight-color:transparent;
+    -webkit-text-size-adjust:100%;
+  }
+
+  :root{
+    --input-h:54px;
+    --safe-top:env(safe-area-inset-top,0px);
+    --safe-bottom:env(safe-area-inset-bottom,0px);
+  }
+
+  /* 移动端：铺满全屏，无需窗口卡片 */
+  #widget{
+    position:fixed;inset:0;
+    display:flex;flex-direction:column;
+    height:100dvh;
+    background:linear-gradient(180deg,#b1e2be,#6bcfcc 50%,#49b8d3);
+  }
+
+  /* ===== 头部 ===== */
+  #header{flex-shrink:0;display:flex;flex-direction:column;padding-top:var(--safe-top);}
+  #titlebar{
+    height:46px;flex-shrink:0;display:flex;align-items:center;gap:8px;
+    padding:0 12px 0 14px;
+    background:rgba(65,158,103,.45);
+  }
+  #logo{
+    width:22px;height:22px;border-radius:6px;background:#bbeba5;color:#26794f;
+    display:flex;align-items:center;justify-content:center;
+    font-size:13px;font-weight:700;flex-shrink:0;
+  }
+  #title-text{flex:1;text-align:center;color:#fff;font-size:16px;font-weight:600;white-space:nowrap;overflow:hidden;}
+  #menuBtn{
+    width:28px;height:28px;border:none;border-radius:50%;cursor:pointer;
+    background:rgba(255,255,255,.16);color:#fff;
+    display:flex;align-items:center;justify-content:center;
+    font-size:17px;font-weight:700;line-height:1;padding-bottom:5px;box-sizing:border-box;
+  }
+  #menuBtn:active{background:rgba(255,255,255,.36);}
+
+  #tabs{height:46px;flex-shrink:0;display:flex;align-items:center;gap:8px;padding:0 14px;}
+  .tab{
+    flex:1;height:30px;border:none;border-radius:9px;cursor:pointer;touch-action:manipulation;
+    background:rgba(255,255,255,.20);color:#fff;font-size:13px;font-weight:500;
+    display:flex;align-items:center;justify-content:center;gap:6px;
+    font-family:inherit;
+  }
+  .tab:active{background:rgba(255,255,255,.30);}
+  .tab.on{background:rgba(255,255,255,.38);font-weight:600;}
+
+  /* ===== 任务列表 ===== */
+  #taskList{
+    flex:1;min-height:0;
+    padding:4px 12px 12px;
+    overflow-y:auto;overflow-x:hidden;
+    -webkit-overflow-scrolling:touch;
+    display:grid;grid-template-columns:1fr;gap:8px;align-content:start;
+    font-size:15px;
+  }
+
+  .task{
+    position:relative;display:flex;align-items:center;gap:12px;
+    background:rgba(255,255,255,.86);border-radius:10px;
+    padding:10px 12px 10px 16px;min-width:0;overflow:hidden;
+    touch-action:manipulation;
+  }
+  .task:active{background:rgba(255,255,255,.95);}
+  .task::before{content:"";position:absolute;left:0;top:0;bottom:0;width:5px;background:var(--stripe);}
+  .task.done{background:rgba(242,247,246,.92);}
+  .task-check{
+    position:relative;width:32px;height:32px;flex-shrink:0;
+    border:2px solid #232b28;border-radius:50%;
+    display:flex;align-items:center;justify-content:center;
+    font-size:19px;color:#00a64e;cursor:pointer;
+  }
+  .task-check::before{
+    content:"";position:absolute;inset:-3px;border-radius:50%;
+    border:2px solid #00a64e;opacity:0;pointer-events:none;
+  }
+  .task.done .task-check{border-color:#00a64e;}
+  .task.pop .task-check{animation:pop .42s cubic-bezier(.34,1.56,.64,1);}
+  .task.pop .task-check::before{animation:ripple .5s ease-out;}
+  @keyframes pop{0%{transform:scale(.4);}100%{transform:scale(1);}}
+  @keyframes ripple{0%{transform:scale(.6);opacity:.9;}100%{transform:scale(2);opacity:0;}}
+  .task-body{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;}
+  .task-name{font-weight:600;color:#0f1714;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .task.done .task-name{color:#7c8a90;text-decoration:line-through;}
+  .task-meta{font-size:.76em;color:#27878f;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .task-clear{
+    flex-shrink:0;display:none;transform:rotate(9deg);
+    background:#4fb967;border:1px solid #4fb967;color:#fff;
+    border-radius:6px;padding:4px 9px;font-size:.62em;font-weight:700;letter-spacing:.5px;
+  }
+  .task.done .task-clear{display:block;}
+
+  /* ===== 底部输入栏 ===== */
+  #inputbar{
+    flex-shrink:0;display:flex;align-items:center;gap:8px;
+    padding:8px 12px calc(8px + var(--safe-bottom));
+    border-top:1px solid rgba(255,255,255,.25);
+  }
+  #newTaskInput{
+    flex:1;min-width:0;height:36px;border:none;border-radius:18px;padding:0 14px;
+    background:rgba(255,255,255,.92);color:#153d34;font-size:16px;outline:none;font-family:inherit;
+  }
+  #newTaskInput::placeholder{color:#7a9389;}
+  #addBtn{
+    width:36px;height:36px;flex-shrink:0;border:none;border-radius:50%;
+    background:#53af6b;color:#fff;font-size:22px;font-weight:600;cursor:pointer;touch-action:manipulation;
+    display:flex;align-items:center;justify-content:center;line-height:1;
+  }
+  #addBtn:active{background:#479b5e;}
+
+  /* ===== 编辑弹层 ===== */
+  #editor{
+    position:fixed;inset:0;z-index:60;display:none;
+    align-items:center;justify-content:center;background:rgba(12,32,26,.45);
+    padding:20px;
+  }
+  #editor.show{display:flex;}
+  .editorCard{
+    width:320px;max-width:100%;max-height:80dvh;overflow-y:auto;
+    background:#fff;border-radius:14px;padding:16px;box-shadow:0 18px 44px rgba(10,30,25,.35);
+  }
+  .edTitle{font-size:16px;font-weight:600;color:#153d34;margin-bottom:12px;}
+  #edName{
+    width:100%;box-sizing:border-box;padding:9px 11px;font-size:16px;
+    border:1px solid #d5e2dc;border-radius:8px;outline:none;color:#153d34;font-family:inherit;
+  }
+  #edName:focus{border-color:#3fae7a;}
+  .edLabel{font-size:12px;color:#5b8a78;margin:12px 0 6px;font-weight:600;}
+  .edChips{display:flex;gap:6px;flex-wrap:wrap;}
+  .chip{
+    padding:8px 14px;font-size:13px;border-radius:999px;border:1px solid #d5e2dc;
+    background:#f4f8f6;color:#476b5d;cursor:pointer;font-family:inherit;touch-action:manipulation;
+  }
+  .chip.on{background:#59c98c;border-color:#59c98c;color:#fff;font-weight:600;}
+  .edBtns{display:flex;justify-content:flex-end;gap:10px;margin-top:16px;}
+  .edBtn{padding:10px 20px;font-size:14px;border-radius:8px;border:none;cursor:pointer;font-family:inherit;touch-action:manipulation;}
+  #edCancel{background:#eef3f0;color:#476b5d;}
+  #edSave{background:#3fae7a;color:#fff;font-weight:600;}
+  #edDelete{background:#e86a5a;color:#fff;font-weight:600;margin-right:auto;}
+  .hidden{display:none!important;}
+
+  /* ===== 菜单（数据备份） ===== */
+  #menuSheet{
+    position:fixed;inset:0;z-index:65;display:none;
+    align-items:flex-end;justify-content:center;background:rgba(12,32,26,.45);
+  }
+  #menuSheet.show{display:flex;}
+  .sheetCard{
+    width:100%;max-width:400px;padding:10px calc(10px + var(--safe-bottom)*0) calc(10px + var(--safe-bottom));
+    display:flex;flex-direction:column;gap:2px;
+  }
+  .sheetBtn{
+    padding:15px;font-size:15px;font-family:inherit;touch-action:manipulation;
+    background:rgba(255,255,255,.95);color:#153d34;
+    border:none;border-bottom:1px solid #e4ede9;cursor:pointer;text-align:center;
+  }
+  .sheetBtn:first-child{border-radius:12px 12px 0 0;}
+  .sheetBtn:nth-last-child(2){border-bottom:none;border-radius:0 0 12px 12px;}
+  .sheetBtn.cancel{margin-top:8px;border-radius:12px;background:#eef3f0;color:#476b5d;font-weight:600;}
+
+  #toast{
+    position:fixed;left:50%;bottom:calc(76px + var(--safe-bottom));transform:translateX(-50%) translateY(8px);
+    background:rgba(20,40,50,.88);color:#fff;padding:9px 16px;border-radius:20px;
+    font-size:13px;opacity:0;transition:all .25s;pointer-events:none;z-index:70;white-space:nowrap;
+  }
+  #toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+</style>
+</head>
+<body>
+<div id="widget">
+  <header id="header">
+    <div id="titlebar">
+      <div id="logo">✓</div>
+      <div id="title-text">全部任务</div>
+      <button id="menuBtn" title="数据备份">⋯</button>
+    </div>
+    <nav id="tabs">
+      <button class="tab" data-f="-1">全部</button>
+      <button class="tab" data-f="0">主线</button>
+      <button class="tab" data-f="1">副线</button>
+      <button class="tab" data-f="2">选股</button>
+    </nav>
+  </header>
+  <main id="taskList"></main>
+  <footer id="inputbar">
+    <input id="newTaskInput" placeholder="输入任务名称，回车快速添加" autocomplete="off">
+    <button id="addBtn" title="新建任务">＋</button>
+  </footer>
+  <!-- 编辑弹层 -->
+  <div id="editor">
+    <div class="editorCard">
+      <div class="edTitle" id="edTitle">新建任务</div>
+      <input id="edName" placeholder="任务名称" maxlength="40" autocomplete="off">
+      <div class="edLabel">类型</div>
+      <div class="edChips" id="edType">
+        <button class="chip" data-v="0">主线</button>
+        <button class="chip" data-v="1">副线</button>
+        <button class="chip" data-v="2">选股</button>
+      </div>
+      <div class="edLabel">重复</div>
+      <div class="edChips" id="edRepeat">
+        <button class="chip" data-v="0">仅一次</button>
+        <button class="chip" data-v="1">每天</button>
+        <button class="chip" data-v="2">每周</button>
+        <button class="chip" data-v="3">每月</button>
+      </div>
+      <div class="edBtns">
+        <button class="edBtn hidden" id="edDelete">删除任务</button>
+        <button class="edBtn" id="edCancel">取消</button>
+        <button class="edBtn" id="edSave">保存</button>
+      </div>
+    </div>
+  </div>
+  <!-- 数据备份菜单 -->
+  <div id="menuSheet">
+    <div class="sheetCard">
+      <button class="sheetBtn" id="btnExportFile">导出到文件（.json）</button>
+      <button class="sheetBtn" id="btnCopy">复制到剪贴板</button>
+      <button class="sheetBtn" id="btnImport">从文件导入</button>
+      <button class="sheetBtn cancel" id="btnMenuCancel">取消</button>
+    </div>
+  </div>
+  <input type="file" id="importFile" accept=".json,application/json" class="hidden">
+</div>
+<div id="toast"></div>
+<script>
+"use strict";
+
+// ============ 数据模型 ============
+const MAIN=0, SIDE=1, VIP=2;
+const STRIPE={0:"#ffd011",1:"#04b7e8",2:"#be9d56"};
+const TYPE_NAME=["主线任务","副线任务","选股任务"];
+function repeatName(r){return r===1?"每天":r===2?"每周":r===3?"每月":"";}
+const SEED=[
+  {name:"每天八杯水",  type:SIDE, repeat:1, tags:"生活", done:false},
+  {name:"吃够2000大卡",type:MAIN, repeat:1, tags:"生活", done:false},
+  {name:"报税",        type:SIDE, repeat:3, tags:"工作", done:true},
+  {name:"体检",        type:VIP,  repeat:0, tags:"生活", done:true},
+  {name:"发走订单快递",type:MAIN, repeat:0, tags:"工作", done:true},
+  {name:"爬楼60层",    type:MAIN, repeat:2, tags:"生活", done:true},
+  {name:"探索世界",    type:MAIN, repeat:0, tags:"其他", done:true},
+  {name:"英语学习",    type:MAIN, repeat:1, tags:"学习", done:true},
+];
+let tasks=[];
+let filter=-1;
+let lastToggled=null;
+
+// ============ 持久化（localStorage；主屏幕独立模式下不受 Safari 7天清除策略影响） ============
+const SAVE_KEY="davelistTasksV1";
+function sanitize(arr){
+  return arr.map(o=>({name:String(o.name||""),type:+o.type||MAIN,repeat:+o.repeat||0,tags:String(o.tags||""),done:!!o.done}));
+}
+function persist(){
+  try{ localStorage.setItem(SAVE_KEY, JSON.stringify(tasks)); }catch(e){ toast("保存失败：存储空间不足"); }
+}
+function loadTasks(){
+  try{
+    const raw=localStorage.getItem(SAVE_KEY);
+    if(raw){
+      const arr=JSON.parse(raw);
+      if(Array.isArray(arr)&&arr.length){ tasks=sanitize(arr); return; }
+    }
+  }catch(e){}
+  tasks=JSON.parse(JSON.stringify(SEED));
+}
+
+// ============ 数据备份：导出 / 导入 ============
+function exportPayload(){ return JSON.stringify(tasks); }
+function exportFile(){
+  const d=new Date();
+  const pad=n=>String(n).padStart(2,"0");
+  const fname=`davelist-backup-${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}.json`;
+  const blob=new Blob([exportPayload()],{type:"application/json"});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement("a");
+  a.href=url; a.download=fname;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),3000);
+  toast("已导出 "+fname);
+}
+async function exportCopy(){
+  const text=exportPayload();
+  try{
+    await navigator.clipboard.writeText(text);
+    toast("已复制到剪贴板");
+  }catch(e){
+    const ta=document.createElement("textarea");
+    ta.value=text; ta.style.position="fixed"; ta.style.opacity="0";
+    document.body.appendChild(ta); ta.select();
+    const ok=document.execCommand&&document.execCommand("copy");
+    ta.remove();
+    toast(ok?"已复制到剪贴板":"复制失败，请用导出到文件");
+  }
+}
+function importData(text){
+  let arr;
+  try{ arr=JSON.parse(text); }catch(e){ toast("导入失败：不是合法 JSON"); return; }
+  if(!Array.isArray(arr)||!arr.length){ toast("导入失败：数据为空或格式不对"); return; }
+  if(!confirm(`将导入 ${arr.length} 条任务并覆盖当前 ${tasks.length} 条，确定？`)) return;
+  tasks=sanitize(arr);
+  persist(); render(); toast(`已导入 ${tasks.length} 条任务`);
+}
+const importFileEl=document.getElementById("importFile");
+importFileEl.addEventListener("change",()=>{
+  const f=importFileEl.files[0];
+  importFileEl.value="";
+  if(!f) return;
+  const r=new FileReader();
+  r.onload=()=>importData(String(r.result));
+  r.onerror=()=>toast("读取文件失败");
+  r.readAsText(f,"utf-8");
+});
+
+// ============ 数据视图（未完成在上，已完成在下） ============
+function sortedTasks(){
+  const open=[],done=[];
+  for(const t of tasks) (t.done?done:open).push(t);
+  return open.concat(done);
+}
+function filteredTasks(){
+  return sortedTasks().filter(t=>filter<0||t.type===filter);
+}
+
+// ============ 渲染 ============
+const taskListEl=document.getElementById("taskList");
+const titleText=document.getElementById("title-text");
+function render(){
+  titleText.textContent=filter<0?"全部任务":filter===0?"主线任务":filter===1?"副线任务":"选股任务";
+  document.querySelectorAll(".tab").forEach(b=>b.classList.toggle("on",+b.dataset.f===filter));
+  taskListEl.innerHTML="";
+  for(const t of filteredTasks()) taskListEl.appendChild(taskEl(t));
+}
+function taskEl(t){
+  const el=document.createElement("div");
+  el.className="task"+(t.done?" done":"")+(lastToggled===t?" pop":"");
+  el.style.setProperty("--stripe",STRIPE[t.type]);
+  el.innerHTML='<div class="task-check">'+(t.done?'<span class="ck">✓</span>':"")+'</div>'+
+    '<div class="task-body"><div class="task-name"></div><div class="task-meta"></div></div>'+
+    '<div class="task-clear">CLEAR</div>';
+  el.querySelector(".task-name").textContent=t.name;
+  const meta="#"+TYPE_NAME[t.type]+(t.tags?" #"+t.tags.split(",").join(" #"):"")+(repeatName(t.repeat)?" #"+repeatName(t.repeat):"");
+  el.querySelector(".task-meta").textContent=meta;
+  el.addEventListener("click",e=>{
+    if(el.querySelector(".task-check").contains(e.target)){
+      toggleDone(t);
+    }else{
+      openEditor(tasks.indexOf(t));
+    }
+  });
+  return el;
+}
+function toggleDone(t){
+  t.done=!t.done;
+  lastToggled=t;
+  persist();
+  render();
+  setTimeout(()=>{ if(lastToggled===t) lastToggled=null; },600);
+}
+
+// ============ 编辑弹层 ============
+const editor=document.getElementById("editor");
+const edName=document.getElementById("edName");
+const edType=document.getElementById("edType");
+const edRepeat=document.getElementById("edRepeat");
+const edDelete=document.getElementById("edDelete");
+let edIndex=-1;
+function setChips(c,v){ for(const b of c.querySelectorAll(".chip")) b.classList.toggle("on",+b.dataset.v===v); }
+function openEditor(index){
+  edIndex=index;
+  edDelete.classList.toggle("hidden",index<0);
+  document.getElementById("edTitle").textContent=index>=0?"编辑任务":"新建任务";
+  if(index>=0){
+    const t=tasks[index];
+    edName.value=t.name; setChips(edType,t.type); setChips(edRepeat,t.repeat);
+  }else{
+    edName.value=newTaskInput.value.trim();
+    setChips(edType,MAIN); setChips(edRepeat,0);
+  }
+  editor.classList.add("show");
+  setTimeout(()=>edName.focus(),50);
+}
+function closeEditor(){editor.classList.remove("show");}
+function saveEditor(){
+  const name=edName.value.trim();
+  if(!name){toast("请输入任务名称");edName.focus();return;}
+  const type=+edType.querySelector(".chip.on").dataset.v;
+  const repeat=+edRepeat.querySelector(".chip.on").dataset.v;
+  if(edIndex>=0){
+    const old=tasks[edIndex];
+    tasks[edIndex]={name,type,repeat,tags:old.tags,done:old.done};
+  }else{
+    tasks.unshift({name,type,repeat,tags:"",done:false});
+    toast("已添加任务");
+  }
+  persist(); closeEditor(); render();
+}
+edType.addEventListener("click",e=>{const b=e.target.closest(".chip");if(b)setChips(edType,+b.dataset.v);});
+edRepeat.addEventListener("click",e=>{const b=e.target.closest(".chip");if(b)setChips(edRepeat,+b.dataset.v);});
+document.getElementById("edSave").addEventListener("click",saveEditor);
+document.getElementById("edCancel").addEventListener("click",closeEditor);
+edDelete.addEventListener("click",()=>{
+  if(edIndex>=0){ tasks.splice(edIndex,1); persist(); closeEditor(); toast("已删除任务"); render(); }
+});
+editor.addEventListener("click",e=>{ if(e.target===editor) closeEditor(); });
+edName.addEventListener("keydown",e=>{ if(e.key==="Enter") saveEditor(); if(e.key==="Escape") closeEditor(); });
+
+// ============ 底部输入栏（快速添加） ============
+const newTaskInput=document.getElementById("newTaskInput");
+function quickAdd(){
+  const name=newTaskInput.value.trim();
+  if(!name) return;
+  tasks.unshift({name,type:MAIN,repeat:0,tags:"",done:false});
+  newTaskInput.value="";
+  persist(); render(); toast("已添加任务");
+}
+newTaskInput.addEventListener("keydown",e=>{ if(e.key==="Enter") quickAdd(); });
+document.getElementById("addBtn").addEventListener("click",()=>openEditor(-1));
+
+// ============ 筛选 ============
+document.querySelectorAll(".tab").forEach(b=>b.addEventListener("click",()=>{ filter=+b.dataset.f; render(); }));
+
+// ============ 数据备份菜单 ============
+const menuSheet=document.getElementById("menuSheet");
+document.getElementById("menuBtn").addEventListener("click",()=>menuSheet.classList.add("show"));
+document.getElementById("btnMenuCancel").addEventListener("click",()=>menuSheet.classList.remove("show"));
+menuSheet.addEventListener("click",e=>{ if(e.target===menuSheet) menuSheet.classList.remove("show"); });
+document.getElementById("btnExportFile").addEventListener("click",()=>{ menuSheet.classList.remove("show"); exportFile(); });
+document.getElementById("btnCopy").addEventListener("click",()=>{ menuSheet.classList.remove("show"); exportCopy(); });
+document.getElementById("btnImport").addEventListener("click",()=>{
+  menuSheet.classList.remove("show");
+  importFileEl.click();
+});
+
+// ============ toast ============
+const toastEl=document.getElementById("toast");
+let toastTimer=0;
+function toast(msg){ toastEl.textContent=msg; toastEl.classList.add("show"); clearTimeout(toastTimer); toastTimer=setTimeout(()=>toastEl.classList.remove("show"),1600); }
+
+// ============ 启动 ============
+loadTasks();
+render();
+if("serviceWorker" in navigator){
+  window.addEventListener("load",()=>{ navigator.serviceWorker.register("./sw.js").catch(()=>{}); });
+}
+</script>
+</body>
+</html>
