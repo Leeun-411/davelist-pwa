@@ -15,7 +15,8 @@
   html,body{margin:0;height:100%;overflow:hidden;overscroll-behavior:none;}
   body{
     font-family:-apple-system,"PingFang SC","Microsoft YaHei",system-ui,sans-serif;
-    background:radial-gradient(1100px 650px at 30% 22%, #f4f8fa, #e4eaf0 58%, #d5dee6);
+    /* 与 #widget 同款渐变兜底，避免任何缝隙露出白底 */
+    background:linear-gradient(180deg,#b1e2be,#6bcfcc 50%,#49b8d3);
     user-select:none;-webkit-user-select:none;
     -webkit-tap-highlight-color:transparent;
     -webkit-text-size-adjust:100%;
@@ -29,9 +30,8 @@
 
   /* 移动端：铺满全屏，无需窗口卡片 */
   #widget{
-    position:fixed;inset:0;
+    position:fixed;inset:0;  /* 只用 inset 撑满，不用 100dvh（iOS 独立模式下 dvh 可能短于真实视口，导致底部露白） */
     display:flex;flex-direction:column;
-    height:100dvh;
     background:linear-gradient(180deg,#b1e2be,#6bcfcc 50%,#49b8d3);
   }
 
